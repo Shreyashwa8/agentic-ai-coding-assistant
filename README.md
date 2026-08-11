@@ -70,6 +70,56 @@ install separately per OS (it ships its own Windows/Linux/Mac builds with GPU au
    python -m agent.agent "List the files in the workspace and summarize what's there."
    ```
 
+## Multi-Agent Mode
+
+Pass `--multi-agent` to activate orchestrated multi-agent mode.
+
+```
+User Task
+    ↓
+Orchestrator (qwen2.5:7b) — breaks task into subtasks
+    ↓ delegate_task(agent, subtask)
+┌─────────────┬──────────────┬────────────────┬────────────────┐
+│   coding    │   research   │   reasoning    │  file_manager  │
+│qwen2.5-coder│   mistral    │  qwen2.5:7b    │  qwen2.5:3b    │
+│  :7b        │              │                │                │
+└─────────────┴──────────────┴────────────────┴────────────────┘
+    ↓ results
+Orchestrator — synthesizes final answer
+```
+
+### Specialist agents
+
+| Agent | Model | Speciality |
+|---|---|---|
+| `coding` | `qwen2.5-coder:7b` | Write, debug, run Python code |
+| `research` | `mistral` | Web search, fetch URLs, summarize |
+| `reasoning` | `qwen2.5:7b` | Analysis, tradeoffs, math, explanations |
+| `file_manager` | `qwen2.5:3b` | List, read, write, organize files |
+
+### Usage
+
+```bash
+# Multi-agent mode
+python -m agent.agent --multi-agent "Research RLHF, then write a Python script that simulates a reward model scoring"
+
+# Single-agent mode (default)
+python -m agent.agent "Write a quicksort in Python"
+```
+
+### When to use multi-agent
+- Tasks that span multiple domains (e.g., research + code + save to file)
+- Complex tasks where different models have different strengths
+- Simple single-domain tasks still work better in single-agent mode (faster, fewer model loads)
+
+> **Note:** Multi-agent mode requires all specialist models to be pulled:
+> ```bash
+> ollama pull qwen2.5-coder:7b
+> ollama pull mistral
+> ollama pull qwen2.5:7b
+> ollama pull qwen2.5:3b
+> ```
+
 ## Auto Model Routing
 
 When no model is specified, the agent automatically picks the best model based on your task:

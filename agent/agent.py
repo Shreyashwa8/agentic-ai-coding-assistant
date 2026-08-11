@@ -29,13 +29,13 @@ SYSTEM_PROMPT = (
 )
 
 
-def _call_ollama(messages, model: str):
+def _call_ollama(messages, model: str, tool_schemas: list):
     resp = requests.post(
         OLLAMA_URL,
         json={
             "model": model,
             "messages": messages,
-            "tools": TOOL_SCHEMAS,
+            "tools": tool_schemas,
             "stream": False,
             # -1 = offload as many layers as fit in VRAM, remainder on CPU.
             "options": {"num_gpu": -1},
@@ -46,7 +46,15 @@ def _call_ollama(messages, model: str):
     return resp.json()["message"]
 
 
-def run_agent(task: str, verbose: bool = True, model: str = None) -> str:
+def run_agent(
+    task: str,
+    verbose: bool = True,
+    model: str = None,
+    tool_schemas: list = None,
+    tool_impls: dict = None,
+    system_prompt: str = None,
+    label: str = "",
+) -> str:
     if model:
         task_type = "manual"
     elif DEFAULT_MODEL:
@@ -55,20 +63,27 @@ def run_agent(task: str, verbose: bool = True, model: str = None) -> str:
         model, task_type = route_model(task)
 
     if verbose:
-        print(f"[router] task_type={task_type}  model={model}")
+        prefix = f"[{label}] " if label else ""
+        print(f"{prefix}[router] task_type={task_type}  model={model}")
+
+    schemas = tool_schemas if tool_schemas is not None else TOOL_SCHEMAS
+    impls   = tool_impls   if tool_impls   is not None else TOOL_IMPLS
+    prompt  = system_prompt or SYSTEM_PROMPT
+
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": prompt},
         {"role": "user", "content": task},
     ]
     last_call = None
 
     for step in range(1, MAX_STEPS + 1):
-        message = _call_ollama(messages, model)
+        message = _call_ollama(messages, model, schemas)
         tool_calls = message.get("tool_calls") or []
 
         if not tool_calls:
             if verbose:
-                print(f"[step {step}] final answer")
+                prefix = f"[{label}] " if label else ""
+                print(f"{prefix}[step {step}] final answer")
             return message.get("content", "")
 
         messages.append(message)
@@ -79,7 +94,7 @@ def run_agent(task: str, verbose: bool = True, model: str = None) -> str:
             if isinstance(args, str):
                 args = json.loads(args)
 
-            impl = TOOL_IMPLS.get(name)
+            impl = impls.get(name)
             if impl is None:
                 result = f"error: unknown tool '{name}'"
             else:
@@ -98,7 +113,8 @@ def run_agent(task: str, verbose: bool = True, model: str = None) -> str:
             last_call = this_call
 
             if verbose:
-                print(f"[step {step}] tool={name} args={args}\n  -> {result[:200]}")
+                prefix = f"[{label}] " if label else ""
+                print(f"{prefix}[step {step}] tool={name} args={args}\n  -> {result[:200]}")
 
             messages.append({"role": "tool", "content": str(result)})
 
@@ -110,7 +126,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("task", nargs="*", help="task for the agent")
     parser.add_argument("--model", default=None, help="Ollama model name (e.g. llama3.2:3b, mistral, qwen2.5:7b)")
+    parser.add_argument("--multi-agent", action="store_true", help="use multi-agent orchestration")
     args = parser.parse_args()
     task = " ".join(args.task) or "List the files in the workspace and summarize what's there."
     print("\n=== FINAL ANSWER ===")
-    print(run_agent(task, model=args.model))
+    if args.multi_agent:
+        from .multiagent import run_multi_agent
+        print(run_multi_agent(task))
+    else:
+        print(run_agent(task, model=args.model))
