@@ -1,8 +1,15 @@
 # Agentic AI Project
 
-A small local coding/research agent that talks to a locally running [Ollama](https://ollama.com)
-server (model `qwen2.5:3b`) and uses tool calls to list/read/write files, search code, and run
-Python snippets inside a sandboxed `workspace/` directory.
+A local agentic AI assistant that talks to a locally running [Ollama](https://ollama.com)
+server (model `qwen2.5:3b`) and autonomously plans and invokes tools to answer questions,
+research topics on the web, manage files, search code, and run Python snippets.
+
+**Tools available to the agent:**
+- `web_search` — DuckDuckGo search (no API key required)
+- `fetch_url` — fetch and read webpage content
+- `list_directory`, `read_file`, `write_file`, `make_directory`, `copy_file`, `move_file` — file management inside a sandboxed `workspace/`
+- `search_code` — regex-based code search (like grep)
+- `run_python` — sandboxed Python execution
 
 This package contains only the portable Python agent code. Ollama itself is a native app you
 install separately per OS (it ships its own Windows/Linux/Mac builds with GPU auto-detection).

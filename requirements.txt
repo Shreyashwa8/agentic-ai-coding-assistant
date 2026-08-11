@@ -1,1 +1,3 @@
 requests
+duckduckgo-search
+beautifulsoup4

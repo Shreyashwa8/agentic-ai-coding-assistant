@@ -4,6 +4,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+import requests
+from bs4 import BeautifulSoup
+
 WORKSPACE = Path(__file__).resolve().parent.parent / "workspace"
 WORKSPACE.mkdir(exist_ok=True)
 
@@ -90,6 +93,40 @@ def search_code(pattern: str, path: str = ".") -> str:
                 rel = file_path.relative_to(WORKSPACE)
                 matches.append(f"{rel}:{lineno}:{line}")
     return "\n".join(matches) if matches else "no matches"
+
+
+def web_search(query: str, max_results: int = 5) -> str:
+    try:
+        from duckduckgo_search import DDGS
+    except ImportError:
+        return "error: duckduckgo-search not installed. Run: pip install duckduckgo-search"
+    try:
+        with DDGS() as ddgs:
+            results = list(ddgs.text(query, max_results=max_results))
+        if not results:
+            return "no results found"
+        lines = []
+        for i, r in enumerate(results, 1):
+            lines.append(f"[{i}] {r['title']}\n    URL: {r['href']}\n    {r['body']}")
+        return "\n\n".join(lines)
+    except Exception as exc:
+        return f"error: {exc}"
+
+
+def fetch_url(url: str, max_chars: int = 4000) -> str:
+    try:
+        resp = requests.get(url, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
+        for tag in soup(["script", "style", "nav", "footer", "header"]):
+            tag.decompose()
+        text = soup.get_text(separator="\n", strip=True)
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        if len(text) > max_chars:
+            return text[:max_chars] + f"\n... [truncated, {len(text) - max_chars} more chars]"
+        return text
+    except Exception as exc:
+        return f"error: {exc}"
 
 
 def run_python(code: str, timeout: int = 10) -> str:
@@ -210,6 +247,36 @@ TOOL_SCHEMAS = [
     {
         "type": "function",
         "function": {
+            "name": "web_search",
+            "description": "Search the web using DuckDuckGo and return titles, URLs, and snippets.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "search query"},
+                    "max_results": {"type": "integer", "description": "number of results to return, default 5"},
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "fetch_url",
+            "description": "Fetch a webpage and return its cleaned text content.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "full URL to fetch"},
+                    "max_chars": {"type": "integer", "description": "max characters to return, default 4000"},
+                },
+                "required": ["url"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "run_python",
             "description": (
                 "Execute a short Python snippet in a fresh sandboxed subprocess (cwd = workspace) "
@@ -236,5 +303,7 @@ TOOL_IMPLS = {
     "copy_file": copy_file,
     "move_file": move_file,
     "search_code": search_code,
+    "web_search": web_search,
+    "fetch_url": fetch_url,
     "run_python": run_python,
 }
