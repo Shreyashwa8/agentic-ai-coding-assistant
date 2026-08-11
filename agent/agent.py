@@ -1,10 +1,11 @@
 import json
+import os
 import requests
 
 from .tools import TOOL_SCHEMAS, TOOL_IMPLS
 
 OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
-MODEL = "qwen2.5:3b"
+DEFAULT_MODEL = os.environ.get("AGENT_MODEL", "qwen2.5:3b")
 MAX_STEPS = 12
 
 SYSTEM_PROMPT = (
@@ -27,11 +28,11 @@ SYSTEM_PROMPT = (
 )
 
 
-def _call_ollama(messages):
+def _call_ollama(messages, model: str):
     resp = requests.post(
         OLLAMA_URL,
         json={
-            "model": MODEL,
+            "model": model,
             "messages": messages,
             "tools": TOOL_SCHEMAS,
             "stream": False,
@@ -44,7 +45,8 @@ def _call_ollama(messages):
     return resp.json()["message"]
 
 
-def run_agent(task: str, verbose: bool = True) -> str:
+def run_agent(task: str, verbose: bool = True, model: str = None) -> str:
+    model = model or DEFAULT_MODEL
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": task},
@@ -52,7 +54,7 @@ def run_agent(task: str, verbose: bool = True) -> str:
     last_call = None
 
     for step in range(1, MAX_STEPS + 1):
-        message = _call_ollama(messages)
+        message = _call_ollama(messages, model)
         tool_calls = message.get("tool_calls") or []
 
         if not tool_calls:
@@ -95,7 +97,11 @@ def run_agent(task: str, verbose: bool = True) -> str:
 
 
 if __name__ == "__main__":
-    import sys
-    task = " ".join(sys.argv[1:]) or "List the files in the workspace and summarize what's there."
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("task", nargs="*", help="task for the agent")
+    parser.add_argument("--model", default=None, help="Ollama model name (e.g. llama3.2:3b, mistral, qwen2.5:7b)")
+    args = parser.parse_args()
+    task = " ".join(args.task) or "List the files in the workspace and summarize what's there."
     print("\n=== FINAL ANSWER ===")
-    print(run_agent(task))
+    print(run_agent(task, model=args.model))

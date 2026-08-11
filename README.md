@@ -1,8 +1,9 @@
 # Agentic AI Project
 
 A local agentic AI assistant that talks to a locally running [Ollama](https://ollama.com)
-server (model `qwen2.5:3b`) and autonomously plans and invokes tools to answer questions,
-research topics on the web, manage files, search code, and run Python snippets.
+server and autonomously plans and invokes tools to answer questions, research topics on the
+web, manage files, search code, and run Python snippets. Works with any model supported by
+Ollama — default is `qwen2.5:3b`.
 
 **Tools available to the agent:**
 - `web_search` — DuckDuckGo search (no API key required)
@@ -69,6 +70,41 @@ install separately per OS (it ships its own Windows/Linux/Mac builds with GPU au
    python -m agent.agent "List the files in the workspace and summarize what's there."
    ```
 
+## Switching Models
+
+The agent works with **any model available in Ollama** that supports tool calling.
+
+### Option 1 — CLI flag (per run)
+```bash
+python -m agent.agent --model llama3.2:3b "Summarize the latest AI news"
+python -m agent.agent --model mistral "Write a Python sorting algorithm"
+python -m agent.agent --model qwen2.5:7b "Research FSDP sharding strategies"
+```
+
+### Option 2 — Environment variable (session default)
+```bash
+# Linux / macOS
+export AGENT_MODEL=llama3.2:3b
+python -m agent.agent "Your task here"
+
+# Windows
+set AGENT_MODEL=llama3.2:3b
+python -m agent.agent "Your task here"
+```
+
+### Recommended models for tool calling
+
+| Model | Size | Pull command | Notes |
+|---|---|---|---|
+| `qwen2.5:3b` | ~1.8 GB | `ollama pull qwen2.5:3b` | Default, fast, good tool use |
+| `qwen2.5:7b` | ~4.4 GB | `ollama pull qwen2.5:7b` | Better reasoning |
+| `llama3.2:3b` | ~2 GB | `ollama pull llama3.2:3b` | Meta's latest small model |
+| `mistral` | ~4 GB | `ollama pull mistral` | Strong general purpose |
+| `qwen2.5-coder:7b` | ~4.4 GB | `ollama pull qwen2.5-coder:7b` | Best for coding tasks |
+
+> **Note:** Models must support tool/function calling to work with this agent.
+> Check [ollama.com/search](https://ollama.com/search) for the full model list.
+
 ## Notes
 
 - GPU is used automatically if present and has enough VRAM (Ollama offloads as many model
@@ -77,4 +113,4 @@ install separately per OS (it ships its own Windows/Linux/Mac builds with GPU au
 - `agent/tools.py` sandboxes all file/search/exec operations to the `workspace/` directory;
   paths that try to escape it are rejected.
 - If `ollama pull` or the agent's HTTP calls fail, confirm the Ollama service is running:
-  `ollama list` should succeed and show `qwen2.5:3b`.
+  `ollama list` should succeed and show your pulled model.
