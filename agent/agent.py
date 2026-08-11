@@ -3,9 +3,10 @@ import os
 import requests
 
 from .tools import TOOL_SCHEMAS, TOOL_IMPLS
+from .router import route_model
 
 OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
-DEFAULT_MODEL = os.environ.get("AGENT_MODEL", "qwen2.5:3b")
+DEFAULT_MODEL = os.environ.get("AGENT_MODEL", None)  # None = auto-route
 MAX_STEPS = 12
 
 SYSTEM_PROMPT = (
@@ -46,7 +47,15 @@ def _call_ollama(messages, model: str):
 
 
 def run_agent(task: str, verbose: bool = True, model: str = None) -> str:
-    model = model or DEFAULT_MODEL
+    if model:
+        task_type = "manual"
+    elif DEFAULT_MODEL:
+        model, task_type = DEFAULT_MODEL, "env"
+    else:
+        model, task_type = route_model(task)
+
+    if verbose:
+        print(f"[router] task_type={task_type}  model={model}")
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": task},

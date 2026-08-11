@@ -70,6 +70,37 @@ install separately per OS (it ships its own Windows/Linux/Mac builds with GPU au
    python -m agent.agent "List the files in the workspace and summarize what's there."
    ```
 
+## Auto Model Routing
+
+When no model is specified, the agent automatically picks the best model based on your task:
+
+| Task Type | Detected by keywords | Model used |
+|---|---|---|
+| Coding | `code`, `function`, `bug`, `implement`, `algorithm`, `script` ... | `qwen2.5-coder:7b` |
+| Reasoning | `solve`, `calculate`, `math`, `analyze`, `tradeoff`, `explain why` ... | `qwen2.5:7b` |
+| Research | `search`, `research`, `latest`, `what is`, `summarize`, `web` ... | `mistral` |
+| General | *(no strong signal)* | `qwen2.5:3b` |
+
+```bash
+# auto-routed to qwen2.5-coder:7b
+python -m agent.agent "Write a binary search function in Python"
+
+# auto-routed to qwen2.5:7b
+python -m agent.agent "Explain the tradeoffs between FSDP and DeepSpeed ZeRO"
+
+# auto-routed to mistral
+python -m agent.agent "Search for the latest LLM benchmarks and summarize"
+
+# auto-routed to qwen2.5:3b (general)
+python -m agent.agent "List the files in workspace"
+```
+
+The agent prints `[router] task_type=... model=...` at the start of each run so you can see which model was selected.
+
+You can override routing anytime with `--model` or `AGENT_MODEL` (see below).
+
+> **Note:** Pull any model before using it: `ollama pull <model-name>`
+
 ## Switching Models
 
 The agent works with **any model available in Ollama** that supports tool calling.
