@@ -1,0 +1,19 @@
+# Ollama runtime and model cache
+ollama-runtime/
+.ollama-local/
+
+# Logs
+*.log
+
+# Sandbox workspace
+workspace/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
